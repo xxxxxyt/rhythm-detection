@@ -177,27 +177,27 @@ class FeatureVideoNN(nn.Module):
         self.convlayer = nn.Sequential(
             #conv
             #1 x T1 x D1 to 64 x T1 x D2
-            nn.Conv2d(1,64,(1,2*self.p[0]),padding = (0,self.p[0])), 
+            nn.Conv2d(1,64,(1,2*self.p[0]+1),padding = (0,self.p[0])), 
             nn.ReLU(),
-            nn.Conv2d(64,64,(1,2*self.p[0]),padding = (0,self.p[0])), 
+            nn.Conv2d(64,64,(1,2*self.p[0]+1),padding = (0,self.p[0])), 
             nn.ReLU(),
             nn.MaxPool2d((self.maxpool_k[0],1),stride=(self.maxpool_k[0],1)),
             #64 x T1 x D2 to 128 x T1 x D3
-            nn.Conv2d(64,128,(1,2*self.p[1]),padding = (0,self.p[1])),
+            nn.Conv2d(64,128,(1,2*self.p[1]+1),padding = (0,self.p[1])),
             nn.ReLU(),
-            nn.Conv2d(128,128,(1,2*self.p[1]),padding = (0,self.p[1])), 
+            nn.Conv2d(128,128,(1,2*self.p[1]+1),padding = (0,self.p[1])), 
             nn.ReLU(),
             nn.MaxPool2d((self.maxpool_k[1],1),stride=(self.maxpool_k[1],1)),
             #128 x T1 x D3 to 256 x T1 x D4
-            nn.Conv2d(128,256,(1,2*self.p[2]),padding = (0,self.p[2])),
+            nn.Conv2d(128,256,(1,2*self.p[2]+1),padding = (0,self.p[2])),
             nn.ReLU(),
-            nn.Conv2d(256,256,(1,2*self.p[2]),padding = (0,self.p[2])),
+            nn.Conv2d(256,256,(1,2*self.p[2]+1),padding = (0,self.p[2])),
             nn.ReLU(),
             nn.MaxPool2d((self.maxpool_k[2],1),stride=(self.maxpool_k[2],1)),
             #128 x T1 x D4 to 512 x T1 x D5
-            nn.Conv2d(256,512,(1,2*self.p[3]),padding = (0,self.p[3])),
+            nn.Conv2d(256,512,(1,2*self.p[3]+1),padding = (0,self.p[3])),
             nn.ReLU(),
-            nn.Conv2d(512,512,(1,2*self.p[3]),padding = (0,self.p[3])),
+            nn.Conv2d(512,512,(1,2*self.p[3]+1),padding = (0,self.p[3])),
             nn.ReLU(),
             nn.MaxPool2d((self.maxpool_k[3],1),stride=(self.maxpool_k[3],1)),
             #512 x T1 x D5 to 1 x T1 x 1
