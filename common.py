@@ -32,9 +32,6 @@ class Attention(nn.Module):
         value.shape:    (n, p*2+1,  1)
         return.shape:   (n, 1,      1)
         """
-        # print(query.shape)
-        # print(key.shape)
-        # print(value.shape)
         query = self.wq(query)  # (n, 1, D)
         # key = self.wk(key)      # (n, p*2+1, dim)
         # value = self.wv(value)

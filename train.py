@@ -34,7 +34,7 @@ parser.add_argument('--theta', type=float, default=0.2, help='onset threshold')
 # parser.add_argument('--mask', type=int, default=0, help='mask some negative data points')
 # parser.add_argument('--label', type=str, default='strength')
 # model
-parser.add_argument('--segment_length', type=int, default=100)
+parser.add_argument('--segment_length', type=int, default=40)
 parser.add_argument('--dim_feature', type=int, default=1000)
 parser.add_argument('--model', type=str, default='RNN')
 parser.add_argument('--use_crf', type=int, default=0)
@@ -59,22 +59,20 @@ if 'CRF' in args.model:
 
 ######################################################
 
-def get_batch(args, vggf, audiof):
+def handle_batch(args, batch):
+    video, label = batch
+    if len(label.shape) == 1:
+        raise Exception('bad batch')
     with torch.no_grad():
-        vggf = vggf.cuda().float().view(-1, vggf.shape[-2], vggf.shape[-1]) # (n, T, D)
-        audiof = audiof.cuda().float().view(-1, audiof.shape[-2], audiof.shape[-1]) # (n, T, D)
-        strength = audiof[:,:,0:1] # (n, T, 1)
-        onset = audiof[:,:,1:2] # # (n, T, 1)
-        btrack = audiof[:,:,2:3]
-        label = (locals()[args.label]).clone()
-        if args.infer_answer:
-            # tmp = torch.zeros_like(label)
-            # tmp[:,:-1,:] = label[:,1:,:]
-            # audiof = tmp.expand_as(audiof)
-            audiof = label.clone().expand_as(audiof)
-        inp = vggf if args.train_video else audiof
-    output = model(inp) # same shape as label
-    return vggf, audiof, label, inp, output
+        video = video.cuda()    # (n, T, H, W)
+        label = label.cuda()    # (n, T, 1) long
+        # if args.infer_answer:
+        #     # tmp = torch.zeros_like(label)
+        #     # tmp[:,:-1,:] = label[:,1:,:]
+        #     # audiof = tmp.expand_as(audiof)
+        #     video = label.clone().expand_as(video)
+    output = model(video)   # (n, T, 1) long
+    return video, label, output
 
 def train(model, train_set, test_set, args):
     data_loader = DataLoader(train_set, batch_size=args.batch_size, collate_fn=collate_fn, shuffle=True)
@@ -84,40 +82,43 @@ def train(model, train_set, test_set, args):
         model.train()
         epoch_loss = 0
         
-        for vggf, audiof in tqdm(data_loader):
-            if len(vggf.shape) > 1:
-                vggf, audiof, label, inp, output = get_batch(args, vggf, audiof)
+        for batch in tqdm(data_loader):
+            try:
+                video, label, output = handle_batch(args, batch)
 
                 adam.zero_grad()
                 if args.use_crf:
-                    loss = model.loss(inp, label)
+                    loss = model.loss(video, label)
                 else: # compute loss by prediction
-                    if args.mask:
-                        with torch.no_grad():
-                            mask = label.ge(args.theta).float()
-                            cnt = int(torch.sum(mask).item())
-                            while cnt > 0:
-                                i = random.randint(0, label.shape[0] - 1)
-                                j = random.randint(0, label.shape[1] - 1)
-                                mask[i, j, 0] = 1
-                                cnt -= 1
-                        output = output.mul(mask)
-                        label = label.mul(mask)
                     loss = torch.nn.functional.binary_cross_entropy(output, label)
+                    # if args.mask:
+                    #     with torch.no_grad():
+                    #         mask = label.ge(args.theta).float()
+                    #         cnt = int(torch.sum(mask).item())
+                    #         while cnt > 0:
+                    #             i = random.randint(0, label.shape[0] - 1)
+                    #             j = random.randint(0, label.shape[1] - 1)
+                    #             mask[i, j, 0] = 1
+                    #             cnt -= 1
+                    #     output = output.mul(mask)
+                    #     label = label.mul(mask)
                 
                 loss.backward()
                 adam.step()
                 epoch_loss += loss.item()
+            except Exception as e:
+                print(e)
 
         print(output.reshape(-1)[20:40])
-        print(label.reshape(-1)[20:40].long())
+        print(label.reshape(-1)[20:40])
 
-        with open (os.path.join(args.save_dir, 'train_log.txt'),'a') as f:
-            f.write(str(epoch) + '/' + str(epoch_loss) + '\n')
-        print("epoch[%d/%d] Loss: %.5f" % (epoch+1, args.num_epoch, epoch_loss))
+        report = 'epoch[%d/%d] Loss: %.5f' % (epoch+1, args.num_epoch, epoch_loss)
+        with open (os.path.join(args.save_dir, 'train_log.txt'), 'a') as f:
+            f.write(report + '\n')
+        print(report)
 
         if epoch % args.save_every == 0:
-            torch.save(model.state_dict(), os.path.join(args.save_dir,'vgg_au_epoch_'+str(epoch)+'_params.pkl'))
+            torch.save(model.state_dict(), os.path.join(args.save_dir, 'epoch_'+str(epoch)+'_params.pkl'))
         if epoch % args.eval_every == 0:
             eval(model, test_set, args)
 
@@ -125,26 +126,30 @@ def eval(model, test_set, args):
     data_loader = DataLoader(test_set, batch_size=args.batch_size, collate_fn=collate_fn)
     cnt_match, cnt_onset, cnt_pred = 0, 0, 0
     model.eval()
-    for vggf, audiof in tqdm(data_loader):
-        if len(vggf.shape) > 1:
-            vggf, audiof, label, inp, output = get_batch(args, vggf, audiof)
-            
-            for n in range(label.shape[0]):
-                for t in range(label.shape[1]):
-                    flag_label = True if label[n,t,0] > args.theta and is_peak(t, label[n,:,0]) else False
-                    flag_pred = True if output[n,t,0] > args.theta and \
-                        (args.use_crf or is_peak(t, output[n,:,0])) else False
-                    cnt_onset += flag_label
-                    cnt_pred += flag_pred
-                    cnt_match += flag_label and flag_pred
+    for batch in tqdm(data_loader):
+            try:
+                video, label, output = handle_batch(args, batch)
+                for n in range(label.shape[0]):
+                    for t in range(label.shape[1]):
+                        flag_label = True if label[n,t,0] > args.theta else False
+                        flag_pred = True if output[n,t,0] > args.theta and \
+                            (args.use_crf or is_peak(t, output[n,:,0])) else False
+                        cnt_onset += flag_label
+                        cnt_pred += flag_pred
+                        cnt_match += flag_label and flag_pred
+            except Exception as e:
+                print(e)
     
     print(output.reshape(-1)[20:40])
-    print(label.reshape(-1)[20:40].long())
+    print(label.reshape(-1)[20:40])
 
     prec   = 1. * cnt_match / cnt_pred if cnt_pred > 0 else 0
     recall = 1. * cnt_match / cnt_onset
     f1 = 2. * prec * recall / (prec + recall) if (prec + recall) > 0 else 0
-    print('Evaluation: F1 %.4f (%.4f %i/%i, %.4f %i/%i)' % (f1, prec, cnt_match, cnt_pred, recall, cnt_match, cnt_onset))
+    report = 'Evaluation: F1 %.4f (%.4f %i/%i, %.4f %i/%i)' % (f1, prec, cnt_match, cnt_pred, recall, cnt_match, cnt_onset)
+    with open (os.path.join(args.save_dir, 'train_log.txt'), 'a') as f:
+        f.write(report + '\n')
+    print(report)
 
 if __name__ == '__main__':
 

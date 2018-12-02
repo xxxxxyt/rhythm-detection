@@ -1,20 +1,20 @@
-import argparse
 import os
+import json
+import sys
+import time
+import pickle
+import argparse
+from tqdm import tqdm
 import cv2
+import numpy as np
+from PIL import Image, ImageDraw
 import torch
 from torch.autograd import Variable
 import torch.utils.data as data
 import torchvision.transforms as transforms
-from PIL import Image, ImageDraw
-#from opt import opt #not complete !!!!!!!!!!!!!!!!!!!!!
-from tqdm import tqdm
-import json
-import numpy as np
-import sys
-import time
-from utils import prep_image_to_tensor,prep_frame
-import pickle
-rootdir = os.getcwd()
+from utils import prep_image_to_tensor, prep_frame, is_peak
+
+root_dir = os.getcwd()
 
 #parser = argparse.ArgumentParser(description='PyTorch AlphaPose Training')
 
@@ -56,7 +56,7 @@ def selectVideo(videodir,efps):
             continue
     #save the selectvideolist        
     jsonvideolist = json.dumps(videolist)
-    with open (os.path.join(rootdir,'select_'+videodir[-8:]+ '.json'),'w') as f:
+    with open (os.path.join(root_dir,'select_'+videodir[-8:]+ '.json'),'w') as f:
         f.write(jsonvideolist)
     
     print('dirlen',len(videolist))
@@ -167,7 +167,11 @@ class MyDataLoader(data.Dataset):
                 for j in range(len(split)):
                     split[j] = torch.max(split[j])
                 strength = torch.stack(split)
-                label = strength.ge(self.theta).view(-1, 1) # (T, 1)
+                T = strength.shape[0]
+                label = torch.zeros(T, 1).long()
+                for t in range(T):
+                    if strength[t] > self.theta and is_peak(t, strength):
+                        label[t] = 1
 
             T = min([video.shape[0], label.shape[0]])
             r = T % self.segment_length
