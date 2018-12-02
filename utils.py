@@ -1,14 +1,17 @@
 import os
 import cv2
-from torch.autograd import Variable
+import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
 import torch.nn.functional as F
+import torchvision.transforms as transforms
+from torch.autograd import Variable
+from torch.nn.parameter import Parameter
 from PIL import Image, ImageDraw
-import numpy as np
 import matplotlib.pyplot as plt
 import json
 import sys
+import math
+import numpy as np
 
 def letterbox_image(img, inp_dim):
     '''resize image with unchanged aspect ratio using padding'''
@@ -71,4 +74,25 @@ def prep_frame(img, inp_dim):
     img_ = torch.from_numpy(img_).float().div(255.0).unsqueeze(0)
     return img_, orig_im, dim
 
+def collate_fn(batch):
+    video_list = []
+    label_list = []
+    for video, label in batch:
+        if len(label.shape) == 1:
+            continue
+        video_list += [video]
+        label_list += [label]
+    if len(label_list) < 1:
+        zero = torch.Tensor([0])
+        return zero, zero
+    video = torch.cat(video_list)
+    label = torch.cat(label_list)
+    return video, label
 
+def is_peak(t, output):
+    if t == 0:
+        return output[t] > output[t + 1]
+    elif t == output.shape[0] - 1:
+        return output[t] > output[t - 1]
+    else:
+        return output[t] > output[t + 1] and output[t] > output[t - 1]
