@@ -1,9 +1,10 @@
-#match_nn
-#T need to fixed
 import torch
 import torch.nn as nn
 import torchvision
+import torchvision.models as models
 from common import ChainCRF, Shift
+from vgg_net import Vgg16Conv
+from collections import OrderedDict
 
 class EndToEndCRF(nn.Module):
     def __init__(self, args):
@@ -12,13 +13,7 @@ class EndToEndCRF(nn.Module):
         self.T = args.segment_length
         self.D = args.dim_feature
 
-        # vgg feature extraction
-        # TODO
-        # vgg_net.forward():
-        # input.shape (n, T, H, W) or whatever you draw from video
-        # output shape (n, T, D)
-        self.vgg_net = None
-
+        self.vgg_net = Vgg16Conv(num_cls=args.dim_feature)
         self.crf = CRF(args)    # CRF network, not CRF layer
 
     def loss(self, x, label):

@@ -10,19 +10,13 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description='PyTorch AlphaPose Training')
 
-"------------------------------dataloader_________________________________"
-parser.add_argument('--videodir',dest='inputpath',type = str,
-                    help='video-directory',default="")
-parser.add_argument('--time',dest = 'time',default=4500,type=int,
-                     help='choose the unify video length to train and test')
-parser.add_argument('--inpdim',dest = 'inp_dim',default=224,type=int,
-                     help = 'input dim for vgg19')
-parser.add_argument('--efps',dest = 'efps',default=20,type=int,
-                     help='the count of extract frame per second')
-parser.add_argument('--indim',dest = 'indim',default=224,type=int,
-                     help='imgsize input vgg')
-parser.add_argument('--outdir',dest = 'outdir',default="",type=str,
-                     help='save the feature generate by vgg')
+"------------------------------dataloader------------------------------"
+parser.add_argument('--videodir',dest='inputpath',type = str,help='video-directory',default="")
+parser.add_argument('--time',dest = 'time',default=4500,type=int,help='choose the unify video length to train and test')
+parser.add_argument('--inpdim',dest = 'inp_dim',default=224,type=int,help = 'input dim for vgg19')
+parser.add_argument('--efps',dest = 'efps',default=20,type=int,help='the count of extract frame per second')
+parser.add_argument('--indim',dest = 'indim',default=224,type=int,help='imgsize input vgg')
+parser.add_argument('--outdir',dest = 'outdir',default="",type=str,help='save the feature generate by vgg')
 opt = parser.parse_args()
 
 rootdir = os.getcwd()
@@ -59,15 +53,3 @@ if __name__ == '__main__':
         with open (os.path.join(opt.outdir,str(video_name[0][:-4])+'_vggfeaturemap.json'),'w') as f:
             f.write(json_result)
         
-
-
-        
-
-            
-            
-
-
-
-
-
-
