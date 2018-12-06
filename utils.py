@@ -31,15 +31,15 @@ def collate_fn(batch):
     label = torch.cat(label_list)
     return video, label
 
-def is_peak(t, x):
-    """
-    t:  float
-    x:  (T,)
-    """
-    if t == 0:
-        return x[t] > x[t + 1]
-    elif t == x.shape[0] - 1:
-        return x[t] > x[t - 1]
-    else:
-        return x[t] > x[t + 1] and x[t] > x[t - 1]
+# def is_peak(t, x):
+#     """
+#     t:  float
+#     x:  (T,)
+#     """
+#     if t == 0:
+#         return x[t] > x[t + 1]
+#     elif t == x.shape[0] - 1:
+#         return x[t] > x[t - 1]
+#     else:
+#         return x[t] > x[t + 1] and x[t] > x[t - 1]
         

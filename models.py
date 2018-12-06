@@ -6,30 +6,34 @@ from common import ChainCRF, Shift
 from vgg_net import Vgg16Conv
 from collections import OrderedDict
 
-class EndToEndCRF(nn.Module):
+class EndToEnd(nn.Module):
     def __init__(self, args):
-        super(EndToEndCRF, self).__init__()
+        super(EndToEnd, self).__init__()
 
         self.T = args.segment_length
         self.D = args.dim_feature
 
-        self.vgg_net = Vgg16Conv(num_cls=args.dim_feature)
-        self.crf = CRF(args)    # CRF network, not CRF layer
+        self.vgg_net = Vgg16Conv(num_cls=args.dim_feature, init_weights=args.vgg_init)
+        self.sequence_labeling = SequenceLabeling(args)
 
     def loss(self, x, label):
         x = self.vgg_net(x)
-        return self.crf.loss(x, label)
+        x = self.sequence_labeling.loss(x, label)
+        return x
 
     def forward(self, x):
         x = self.vgg_net(x)
-        return self.crf.forward(x)
+        x = self.sequence_labeling.forward(x)
+        return x
 
-class CRF(nn.Module):
+class SequenceLabeling(nn.Module):
     def __init__(self, args):
-        super(CRF, self).__init__()
+        super(SequenceLabeling, self).__init__()
 
         self.D = args.dim_feature
         self.d_hidden = 256
+        self.use_crf = args.use_crf
+
         # self.shift = Shift(args)
         # self.linears = nn.ModuleList([nn.Sequential(
         #     nn.Linear(self.D, self.D), nn.ReLU(), nn.Dropout()
@@ -37,9 +41,9 @@ class CRF(nn.Module):
         self.lstm = nn.LSTM(input_size=self.D, hidden_size=self.d_hidden, 
             batch_first=True, bidirectional=True, num_layers=2, dropout=0.4)
         self.crf = ChainCRF(self.d_hidden * 2, 2)
-        self.sigmoid = nn.Sigmoid()
+        self.out = nn.Sequential(nn.Linear(self.d_hidden * 2, 1), nn.Sigmoid())
 
-    def _get_crf_input(self, x):
+    def get_lstm_output(self, x):
         """
         x.shape:        (n, T, D)
         return.shape:   (n, T, d_hidden * 2)
@@ -56,14 +60,19 @@ class CRF(nn.Module):
         label.shape:    (n, T, 1)
         return.shape:   (1,)
         """
-        label = label.clone().long()
-        x = self._get_crf_input(x)
-        return torch.sum(self.crf.loss(x, label[:,:,0]))
+        x = self.get_lstm_output(x)
+        label = label.clone().long() if self.use_crf else \
+                label.clone().float()
+        loss = torch.sum(self.crf.loss(x, label[:,:,0])) if self.use_crf else \
+               torch.nn.functional.binary_cross_entropy(self.out(x), label)
+        return loss
 
     def forward(self, x):
         """
         x.shape:        (n, T, D)
         return.shape:   (n, T, 1)
         """
-        x = self._get_crf_input(x)
-        return self.crf.decode(x).unsqueeze(dim=-1)
+        x = self.get_lstm_output(x)
+        x = self.crf.decode(x).unsqueeze(dim=-1) if self.use_crf else \
+            self.out(x)
+        return x

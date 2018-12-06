@@ -10,7 +10,7 @@ class Vgg16Conv(nn.Module):
     vgg16 convolution network architecture
     """
 
-    def __init__(self, num_cls=1000):
+    def __init__(self, num_cls=1000, init_weights=True):
         """
         Input
             number of class, default is 1k.
@@ -59,7 +59,8 @@ class Vgg16Conv(nn.Module):
         # switch
         self.pool_locs = OrderedDict()
         # initial weight
-        self.init_weights()
+        if init_weights:
+            self.init_weights()
 
     def init_weights(self):
         """

@@ -73,7 +73,7 @@ if __name__ == '__main__':
     dim_video = 224
 
     for i, video_name in enumerate(video_list):
-        if i <= 1122:
+        if i <= 1655:
             continue
         try:
             video_id = video_name.split('.')[0]
@@ -92,5 +92,6 @@ if __name__ == '__main__':
             with open(os.path.join(target_dir, file_name), 'wb') as f:
                 pickle.dump(video, f)
 
-        except DataError as e:
-            print(e)
+        except Exception as e:
+            # print(e)
+            continue

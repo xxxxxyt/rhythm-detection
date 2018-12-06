@@ -47,10 +47,7 @@ class Shift(nn.Module):
         self.T = args.segment_length
         self.D = args.dim_feature
         self.use_attention = args.shift_with_attention
-        self.group = [0, 1000]
-        if args.train_video == 0:
-            self.group = [0, 1, 2, 3, 4, 5, 9, 21, 33, 45, 57, 185, 
-                205, 206, 207, 214, 215, 216, 217, 219, 222, 228]
+        self.group = [0, 1000, 2000]    # how features group up
         self.n_group = len(self.group) - 1
 
         if self.use_attention:
